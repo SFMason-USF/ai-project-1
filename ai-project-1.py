@@ -46,16 +46,42 @@ def links_heuristic(cities, start, end):
 
 
 def a_star(cities, start, end, heuristic):
-    '''Perform a recursive A* search using the map defined by cities (adjacency list)'''
-    possible_moves = {city['name']: (distance_heuristic(start, city)
-                                     if heuristic == 1 else
-                                     links_heuristic(cities, start, city))
-                      for city in start['connections']}
-    if end['name'] in possible_moves:
-        pass  # handle end case
-    best_move = min(possible_moves, key=lambda x: possible_moves[x])
-    #TODO: Figure out stack overflow
-    return [start] + a_star(cities, cities[best_move], end, heuristic) if best_move != end['name'] else []
+    '''Perform a recursive A* search using the map defined by cities (adjacency list)
+    cities {dict<str, dict>} - The map of cities as (city_name, city_data) pairs
+    start {str} - The name of the city to start at
+    end {str} - The name of the city to end at
+    heuristic {int} - [1 || 2] The heuristic to use. 1 is distance, 2 is links
+    returns path {city[]} - A list of cities that make up the path taken'''
+
+    # TODO: still backtracking to visited cities for start
+    visited = set(start)
+
+    path = [cities[start]]
+    if end == start:
+        return path
+
+    while True:
+        possible_moves = {city['name']: (distance_heuristic(cities[start], city)
+                                         if heuristic == 1
+                                         else links_heuristic(cities, cities[start], city))
+                          for city in cities[path[-1]['name']]['connections']
+                          if city['name'] not in visited}
+
+        print('At City {0}. Possible moves are: {1}'.format(
+            path[-1]['name'], possible_moves.keys()))
+
+        if not possible_moves:
+            if not path or path[-1] == cities[start]:
+                print('No valid path found.')
+                return path
+            path = path[:-1]
+            continue
+        if cities[end]['name'] in possible_moves:
+            path.append(cities[end])
+            return path
+        best_move = min(possible_moves, key=lambda x: possible_moves[x])
+        visited.add(best_move)
+        path.append(cities[best_move])
 
 
 def main(args):
@@ -110,8 +136,10 @@ def main(args):
 
     print('Done filtering cities. Remaining {0} cities.'.format(len(cities)))
 
-    print([city['name']
-           for city in a_star(cities, cities['A1'], cities['A5'], 1)])
+    print('Map:')
+    print_map(cities)
+
+    a_star(cities, args[2], args[3], args[5])
 
 
 if __name__ == '__main__':
