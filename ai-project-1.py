@@ -5,8 +5,7 @@ import heapq
 from collections import deque
 
 
-# TODO: change distance heuristic to total distance traveled since start
-# TODO: implement links heuristic search
+# TODO: link distance not accumulating in links heuristic
 
 
 class City():
@@ -59,15 +58,88 @@ def print_usage():
           ''' 1 - Optimal path only. 2 - Step-by-step''')
 
 
-def print_map_dicts(_map):
-    '''Print a map'''
-    for key, value in _map.items():
-        print(key + ' -> ', end='')
-        print([city['name'] for city in value['connections']])
+# def a_star_distance(start, end, verbose=False):
+#     '''Perform an A* search using the start and end nodes of an adjacency list
+#     start {City} -          The name of the city to start at
+#     end {City} -            The name of the city to end at
+#     verbose {bool} -        If True, the algorithm will provide step-by-step output
+#                             and wait for user input before proceeding
+#     returns path {City[]} - A list of cities that make up the path taken'''
+
+#     if verbose:
+#         print('\nStarting search from city {0}'.format(start.name))
+
+#     if start == end:
+#         if verbose:
+#             print('Start City is the same as end!')
+#         return [start]
+
+#     visited = set()
+#     visited.add(start.name)
+
+#     previously = {
+#         start.name: None
+#     }
+
+#     distance_from_start = {
+#         start.name: 0.0
+#     }
+
+#     frontier = start.connections[:]
+#     for city in frontier:
+#         previously[city.name] = start
+#         distance_from_start[city.name] = sqrt(city.distance_to(start))
+
+#     while frontier:
+#         if verbose:
+#             print()
+
+#         # sort descending by distance to end city
+#         # so that the last element will be the closest to end
+#         frontier.sort(key=lambda city: city.distance_to(end), reverse=True)
+
+#         if verbose:
+#             print('At city {0}'.format(previously[frontier[-1].name]))
+#             print('Currently, there are {0} potential paths. These are:'.format(
+#                 len(frontier)))
+#             for city in frontier:
+#                 print('{0} ({1} units away from end goal)'.format(
+#                     city.name, int(sqrt(city.distance_to(end)))))
+
+#         current_city = frontier.pop()
+#         visited.add(current_city.name)
+
+#         if verbose:
+#             print('The best path to take now is {0}'.format(current_city.name))
+#             input('Press enter to take this path...')
+
+#         if current_city == end:
+#             if verbose:
+#                 input('End city found! Press enter to exit search...')
+#             path = [current_city]
+#             previous = previously[current_city.name]
+#             while previous is not None:
+#                 path.append(previous)
+#                 previous = previously[previous.name]
+#             path.reverse()
+#             return path
+
+#         for city in current_city.connections:
+#             # skip cities that have been visited
+#             if city.name in visited:
+#                 continue
+#             previously[city.name] = current_city
+#             frontier.append(city)
+
+#     if verbose:
+#         input('No more valid paths found. ' +
+#               'There must not be a way to get to the end from start.\n' +
+#               'Press enter to continue...')
+#     return []
 
 
-def a_star_distance(cities, start, end, verbose=False):
-    '''Perform a recursive A* search using the map defined by cities (adjacency list)
+def a_star_distance(start, end, verbose=False):
+    '''Perform an A* search using the start and end nodes of an adjacency list
     start {City} -          The name of the city to start at
     end {City} -            The name of the city to end at
     verbose {bool} -        If True, the algorithm will provide step-by-step output
@@ -75,7 +147,7 @@ def a_star_distance(cities, start, end, verbose=False):
     returns path {City[]} - A list of cities that make up the path taken'''
 
     if verbose:
-        print('\nStarting search from city {0}'.format(start.name))
+        print('\nStarting search beginning with city {0}'.format(start.name))
 
     if start == end:
         if verbose:
@@ -83,36 +155,27 @@ def a_star_distance(cities, start, end, verbose=False):
         return [start]
 
     visited = set()
-    visited.add(start.name)
 
-    previously = {
-        start.name: None
-    }
+    frontier = [start]
 
-    distance_traveled = {
-        start.name: 0.0
-    }
+    previously = {}
+    previously[start.name] = None
 
-    frontier = start.connections[:]
-    for city in frontier:
-        previously[city.name] = start
-        distance_traveled[city.name] = sqrt(city.distance_to(start))
+    distance_from_start = {}
+    distance_from_start[start.name] = 0.0
 
     while frontier:
-        if verbose:
-            print()
+        # sort the frontier so that the closest node to the end is in the back
+        frontier.sort(
+            key=lambda city: distance_from_start[city.name] + city.distance_to(end), reverse=True)
 
-        # sort descending by distance to end city
-        # so that the last element will be the closest to end
-        frontier.sort(key=lambda city: city.distance_to(end), reverse=True)
-
-        if verbose:
-            print('At city {0}'.format(previously[frontier[-1].name]))
-            print('Currently, there are {0} potential paths. These are:'.format(
-                len(frontier)))
+        if verbose and previously[frontier[-1].name]:
+            print('\nCurrently at city {0}. Possible paths are:'.format(previously[
+                frontier[-1].name].name))
             for city in frontier:
-                print('{0} ({1} units away from end goal)'.format(
-                    city.name, int(sqrt(city.distance_to(end)))))
+                print('{0}\t(Path would be at least {1} units long.)'.format(
+                    city.name, int(distance_from_start[city.name] + city.distance_to(end))))
+            print()
 
         current_city = frontier.pop()
         visited.add(current_city.name)
@@ -123,7 +186,8 @@ def a_star_distance(cities, start, end, verbose=False):
 
         if current_city == end:
             if verbose:
-                input('End city found! Press enter to exit search...')
+                input('End city found! Path was {0} units long.\nPress enter to exit search...'.format(
+                    int(distance_from_start[current_city.name])))
             path = [current_city]
             previous = previously[current_city.name]
             while previous is not None:
@@ -133,61 +197,119 @@ def a_star_distance(cities, start, end, verbose=False):
             return path
 
         for city in current_city.connections:
-            # skip cities that have been visited
+            if city in visited:
+                continue
+            if city not in frontier:
+                frontier.append(city)
+            distance_traveled = distance_from_start[current_city.name] + \
+                current_city.distance_to(city)
+
+            if city.name not in distance_from_start or \
+                    distance_traveled < distance_from_start[city.name]:
+                distance_from_start[city.name] = distance_traveled
+                previously[city.name] = current_city
+
+    if verbose:
+        input('No more valid paths found. There must not be a way to get to the end from start.\nPress enter to continue...')
+
+    return []
+
+
+def a_star(start, end, use_distance=True, verbose=False):
+    '''Perform an A* search using the start and end nodes of an adjacency list
+    start {City} -          The name of the city to start at
+    end {City} -            The name of the city to end at
+    use_distance {bool} -   Whether to use euclidean distance to determine how closes
+                            a city is from the end. If false, assumes all cities are
+                            equal distance to the end (i.e. fewest links heuristic)
+    verbose {bool} -        If True, the algorithm will provide step-by-step output
+                            and wait for user input before proceeding
+    returns path {City[]} - A list of cities that make up the path taken'''
+
+    if verbose:
+        print('\nStarting search beginning with city {0}'.format(start.name))
+
+    if start == end:
+        if verbose:
+            print('Start City is the same as end!')
+        return [start]
+
+    visited = set()
+
+    frontier = [start]
+
+    previously = {}
+    previously[start.name] = None
+
+    distance_from_start = {}
+    distance_from_start[start.name] = 0.0
+
+    def heuristic(city):
+        if use_distance:
+            return float(distance_from_start[city.name] + sqrt(city.distance_to(end)))
+        return distance_from_start[city.name] + 1
+
+    while frontier:
+        # sort the frontier so that the closest node to the end is in the back
+        frontier.sort(key=heuristic, reverse=True)
+
+        if verbose and previously[frontier[-1].name]:
+            print('\nCurrently at city {0}. Possible paths are:'.format(previously[
+                frontier[-1].name].name))
+            for city in frontier:
+                print('{0}\t(Path would be at least {1} units long.)'.format(
+                    city.name, int(heuristic(city))))
+            print()
+
+        current_city = frontier.pop()
+        visited.add(current_city.name)
+
+        if verbose:
+            print('The best path to take now is {0}'.format(current_city.name))
+            input('Press enter to take this path...')
+
+        if current_city == end:
+            if verbose:
+                input('End city found! Path was {0} units long.\nPress enter to exit search...'.format(
+                    int(distance_from_start[current_city.name])))
+            path = [current_city]
+            previous = previously[current_city.name]
+            while previous is not None:
+                path.append(previous)
+                previous = previously[previous.name]
+            path.reverse()
+            return path
+
+        for city in current_city.connections:
             if city.name in visited:
                 continue
-            previously[city.name] = current_city
-            frontier.append(city)
+            if city not in frontier:
+                frontier.append(city)
+            distance_traveled = distance_from_start[current_city.name] + \
+                sqrt(current_city.distance_to(city)) if use_distance else 1
+
+            if city.name not in distance_from_start or \
+                    distance_traveled < distance_from_start[city.name]:
+                distance_from_start[city.name] = distance_traveled
+                previously[city.name] = current_city
 
     if verbose:
         input('No more valid paths found. ' +
               'There must not be a way to get to the end from start.\n' +
               'Press enter to continue...')
+
     return []
-
-
-def a_star_links(cities, start, end, verbose=False):
-    '''Perform a recursive A* search using the map defined by cities (adjacency list)
-    cities {dict<str, dict>} - The map of cities as (city_name, city_data) pairs
-    start {str} - The name of the city to start at
-    end {str} - The name of the city to end at
-    heuristic {int} - [1 || 2] The heuristic to use. 1 is distance, 2 is links
-    returns path {city[]} - A list of cities that make up the path taken'''
-
-    # TODO: still backtracking to visited cities for start
-    visited = set()
-    visited.add(start)
-
-    path = [cities[start]]
-    if end == start:
-        return path
-
-    while True:
-        possible_moves = {city['name']: (distance_heuristic(cities[start], city)
-                                         if heuristic == 1
-                                         else links_heuristic(cities, cities[start], city))
-                          for city in cities[path[-1]['name']]['connections']
-                          if city['name'] not in visited}
-
-        print('At City {0}. Possible moves are: {1}'.format(
-            path[-1]['name'], list(possible_moves.keys())))
-
-        if not possible_moves:
-            if not path or path[-1] == cities[start]:
-                print('No valid path found.')
-                return path
-            path = path[:-1]
-            continue
-        if cities[end]['name'] in possible_moves:
-            path.append(cities[end])
-            return path
-        best_move = min(possible_moves, key=lambda x: possible_moves[x])
-        visited.add(best_move)
-        path.append(cities[best_move])
 
 
 def main(args):
     '''Program entry point'''
+
+    print(args)
+
+    if args[5] not in '12' and args[6] not in '12':
+        print_usage()
+        return 1
+
     city_name_regex = re.compile(r'''([A-Z]\d{1,3}[a-z]?)''')
 
     cities = {}
@@ -243,15 +365,8 @@ def main(args):
     for city in cities.values():
         city.connections = [
             road for road in city.connections if road.name in cities]
-
     print('Done filtering cities. Remaining {0} cities.'.format(len(cities)))
 
-    # print('Map:')
-    # for city in sorted(cities.values(), key=lambda x: x.name):
-    #    print(city)
-    # print_map_dicts(cities)
-
-    # a_star(cities, args[2], args[3], args[5])
     if args[2] not in cities:
         print(
             'Error: "{0}" is not a valid city name. Exiting...'.format(args[2]))
@@ -262,12 +377,11 @@ def main(args):
             'Error: "{0}" is not a valid city name. Exiting...'.format(args[3]))
         return 1
     end = cities[args[3]]
-    if args[5] == '1':
-        print([city.name for city in a_star_distance(cities, start, end, True)])
-    elif args[5] == '2':
-        print(a_star_links(cities, start, end, True))
-    else:
-        print_usage()
+
+    print('Starting a star search...')
+    path = a_star(start, end, args[5] == '1', args[6] == '2')
+    print('Path:')
+    print([city.name for city in path])
 
     return 0
 
