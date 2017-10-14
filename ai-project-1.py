@@ -239,7 +239,7 @@ def main(args):
     print('Loading map...')
 
     # load cities
-    with open(args[1], 'r') as locations_file:
+    with open(args[1].strip('''"' '''), 'r') as locations_file:
         city_regex = re.compile(city_name_regex.pattern + r' (\d+) (\d+)')
         for line in locations_file:
             name_match = city_regex.search(line)
@@ -252,7 +252,7 @@ def main(args):
                     y=name_match.group(3))
 
     # load roads
-    with open(args[0], 'r') as connections_file:
+    with open(args[0].strip('''"' '''), 'r') as connections_file:
         road_count = 0
         source_city_regex = re.compile(city_name_regex.pattern + r' (\d+)')
         for line in connections_file:
