@@ -138,83 +138,6 @@ def print_usage():
 #     return []
 
 
-def a_star_distance(start, end, verbose=False):
-    '''Perform an A* search using the start and end nodes of an adjacency list
-    start {City} -          The name of the city to start at
-    end {City} -            The name of the city to end at
-    verbose {bool} -        If True, the algorithm will provide step-by-step output
-                            and wait for user input before proceeding
-    returns path {City[]} - A list of cities that make up the path taken'''
-
-    if verbose:
-        print('\nStarting search beginning with city {0}'.format(start.name))
-
-    if start == end:
-        if verbose:
-            print('Start City is the same as end!')
-        return [start]
-
-    visited = set()
-
-    frontier = [start]
-
-    previously = {}
-    previously[start.name] = None
-
-    distance_from_start = {}
-    distance_from_start[start.name] = 0.0
-
-    while frontier:
-        # sort the frontier so that the closest node to the end is in the back
-        frontier.sort(
-            key=lambda city: distance_from_start[city.name] + city.distance_to(end), reverse=True)
-
-        if verbose and previously[frontier[-1].name]:
-            print('\nCurrently at city {0}. Possible paths are:'.format(previously[
-                frontier[-1].name].name))
-            for city in frontier:
-                print('{0}\t(Path would be at least {1} units long.)'.format(
-                    city.name, int(distance_from_start[city.name] + city.distance_to(end))))
-            print()
-
-        current_city = frontier.pop()
-        visited.add(current_city.name)
-
-        if verbose:
-            print('The best path to take now is {0}'.format(current_city.name))
-            input('Press enter to take this path...')
-
-        if current_city == end:
-            if verbose:
-                input('End city found! Path was {0} units long.\nPress enter to exit search...'.format(
-                    int(distance_from_start[current_city.name])))
-            path = [current_city]
-            previous = previously[current_city.name]
-            while previous is not None:
-                path.append(previous)
-                previous = previously[previous.name]
-            path.reverse()
-            return path
-
-        for city in current_city.connections:
-            if city in visited:
-                continue
-            if city not in frontier:
-                frontier.append(city)
-            distance_traveled = distance_from_start[current_city.name] + \
-                current_city.distance_to(city)
-
-            if city.name not in distance_from_start or \
-                    distance_traveled < distance_from_start[city.name]:
-                distance_from_start[city.name] = distance_traveled
-                previously[city.name] = current_city
-
-    if verbose:
-        input('No more valid paths found. There must not be a way to get to the end from start.\nPress enter to continue...')
-
-    return []
-
-
 def a_star(start, end, use_distance=True, verbose=False):
     '''Perform an A* search using the start and end nodes of an adjacency list
     start {City} -          The name of the city to start at
@@ -245,6 +168,7 @@ def a_star(start, end, use_distance=True, verbose=False):
     distance_from_start[start.name] = 0.0
 
     def heuristic(city):
+        '''Return the heuristic score for a city.'''
         if use_distance:
             return float(distance_from_start[city.name] + sqrt(city.distance_to(end)))
         return distance_from_start[city.name] + 1
@@ -253,7 +177,7 @@ def a_star(start, end, use_distance=True, verbose=False):
         # sort the frontier so that the closest node to the end is in the back
         frontier.sort(key=heuristic, reverse=True)
 
-        if verbose and previously[frontier[-1].name]:
+        if verbose and frontier[-1].name in previously and previously[frontier[-1].name]:
             print('\nCurrently at city {0}. Possible paths are:'.format(previously[
                 frontier[-1].name].name))
             for city in frontier:
@@ -286,7 +210,7 @@ def a_star(start, end, use_distance=True, verbose=False):
             if city not in frontier:
                 frontier.append(city)
             distance_traveled = distance_from_start[current_city.name] + \
-                sqrt(current_city.distance_to(city)) if use_distance else 1
+                (sqrt(current_city.distance_to(city)) if use_distance else 1)
 
             if city.name not in distance_from_start or \
                     distance_traveled < distance_from_start[city.name]:
@@ -303,8 +227,6 @@ def a_star(start, end, use_distance=True, verbose=False):
 
 def main(args):
     '''Program entry point'''
-
-    print(args)
 
     if args[5] not in '12' and args[6] not in '12':
         print_usage()
@@ -378,7 +300,7 @@ def main(args):
         return 1
     end = cities[args[3]]
 
-    print('Starting a star search...')
+    print('Starting A* search...')
     path = a_star(start, end, args[5] == '1', args[6] == '2')
     print('Path:')
     print([city.name for city in path])
