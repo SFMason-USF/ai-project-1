@@ -1,11 +1,36 @@
 import sys
 import re
 from math import sqrt
-import heapq
-from collections import deque
+import time
 
 
-# TODO: link distance not accumulating in links heuristic
+class Stopwatch():
+    '''Provides a simple stopwatch for measuring timing'''
+
+    def __init__(self):
+        self.__counter = 0.0
+        self.__started = None
+
+    def start(self):
+        'Start timing'
+        self.__counter = 0.0
+        self.__started = time.time()
+
+    def stop(self):
+        'Stop timing and record counter'
+        if self.__started is None:
+            return
+        self.__counter += time.time() - self.__started
+        self.__started = None
+
+    def reset(self):
+        'Stop timing and reset counter time'
+        self.stop()
+        self.__counter = 0.0
+
+    def elapsed(self):
+        'Get the time elapsed. Returns None if Stopwatch is running'
+        return self.__counter if self.__started is None else None
 
 
 class City():
@@ -58,86 +83,6 @@ def print_usage():
           ''' 1 - Optimal path only. 2 - Step-by-step''')
 
 
-# def a_star_distance(start, end, verbose=False):
-#     '''Perform an A* search using the start and end nodes of an adjacency list
-#     start {City} -          The name of the city to start at
-#     end {City} -            The name of the city to end at
-#     verbose {bool} -        If True, the algorithm will provide step-by-step output
-#                             and wait for user input before proceeding
-#     returns path {City[]} - A list of cities that make up the path taken'''
-
-#     if verbose:
-#         print('\nStarting search from city {0}'.format(start.name))
-
-#     if start == end:
-#         if verbose:
-#             print('Start City is the same as end!')
-#         return [start]
-
-#     visited = set()
-#     visited.add(start.name)
-
-#     previously = {
-#         start.name: None
-#     }
-
-#     distance_from_start = {
-#         start.name: 0.0
-#     }
-
-#     frontier = start.connections[:]
-#     for city in frontier:
-#         previously[city.name] = start
-#         distance_from_start[city.name] = sqrt(city.distance_to(start))
-
-#     while frontier:
-#         if verbose:
-#             print()
-
-#         # sort descending by distance to end city
-#         # so that the last element will be the closest to end
-#         frontier.sort(key=lambda city: city.distance_to(end), reverse=True)
-
-#         if verbose:
-#             print('At city {0}'.format(previously[frontier[-1].name]))
-#             print('Currently, there are {0} potential paths. These are:'.format(
-#                 len(frontier)))
-#             for city in frontier:
-#                 print('{0} ({1} units away from end goal)'.format(
-#                     city.name, int(sqrt(city.distance_to(end)))))
-
-#         current_city = frontier.pop()
-#         visited.add(current_city.name)
-
-#         if verbose:
-#             print('The best path to take now is {0}'.format(current_city.name))
-#             input('Press enter to take this path...')
-
-#         if current_city == end:
-#             if verbose:
-#                 input('End city found! Press enter to exit search...')
-#             path = [current_city]
-#             previous = previously[current_city.name]
-#             while previous is not None:
-#                 path.append(previous)
-#                 previous = previously[previous.name]
-#             path.reverse()
-#             return path
-
-#         for city in current_city.connections:
-#             # skip cities that have been visited
-#             if city.name in visited:
-#                 continue
-#             previously[city.name] = current_city
-#             frontier.append(city)
-
-#     if verbose:
-#         input('No more valid paths found. ' +
-#               'There must not be a way to get to the end from start.\n' +
-#               'Press enter to continue...')
-#     return []
-
-
 def a_star(start, end, use_distance=True, verbose=False):
     '''Perform an A* search using the start and end nodes of an adjacency list
     start {City} -          The name of the city to start at
@@ -157,21 +102,21 @@ def a_star(start, end, use_distance=True, verbose=False):
             print('Start City is the same as end!')
         return [start]
 
-    visited = set()
+    visited = set() #previously visited cities by name
 
-    frontier = [start]
+    frontier = [start] #potential paths to take
 
-    previously = {}
+    previously = {} #records the previously visited city for each city, so the path can be reconstructed
     previously[start.name] = None
 
-    distance_from_start = {}
+    distance_from_start = {} #best score for each city during the search, to allow accumulation of distance traveled
     distance_from_start[start.name] = 0.0
 
     def heuristic(city):
         '''Return the heuristic score for a city.'''
         if use_distance:
             return float(distance_from_start[city.name] + sqrt(city.distance_to(end)))
-        return distance_from_start[city.name] + 1
+        return distance_from_start[city.name] + 1 #assume every city is 1 link away from the end
 
     while frontier:
         # sort the frontier so that the closest node to the end is in the back
@@ -196,22 +141,24 @@ def a_star(start, end, use_distance=True, verbose=False):
             if verbose:
                 input('End city found! Path was {0} units long.\nPress enter to exit search...'.format(
                     int(distance_from_start[current_city.name])))
+            #reconstruct the path we took
             path = [current_city]
             previous = previously[current_city.name]
-            while previous is not None:
+            while previous is not None: #walk back to the start
                 path.append(previous)
                 previous = previously[previous.name]
-            path.reverse()
+            path.reverse() #path was backwards
             return path
 
         for city in current_city.connections:
             if city.name in visited:
                 continue
-            if city not in frontier:
+            if city not in frontier: #avoid duplicating paths
                 frontier.append(city)
             distance_traveled = distance_from_start[current_city.name] + \
                 (sqrt(current_city.distance_to(city)) if use_distance else 1)
 
+            #if we've never been here or this path is better than the path we;ve already found for city
             if city.name not in distance_from_start or \
                     distance_traveled < distance_from_start[city.name]:
                 distance_from_start[city.name] = distance_traveled
@@ -232,7 +179,11 @@ def main(args):
         print_usage()
         return 1
 
-    city_name_regex = re.compile(r'''([A-Z]\d{1,3}[a-z]?)''')
+    city_name_pattern = r'''(?P<city_name>\w+)'''
+    locations_regex = re.compile(
+        r'^' + city_name_pattern + r''' +(?P<x>\d+) +(?P<y>\d+)''')
+    connections_regex = re.compile(
+        r'^' + city_name_pattern + r''' +(?P<connections_count>\d+) +''')
 
     cities = {}
 
@@ -240,38 +191,45 @@ def main(args):
 
     # load cities
     with open(args[1].strip('''"' '''), 'r') as locations_file:
-        city_regex = re.compile(city_name_regex.pattern + r' (\d+) (\d+)')
+        line_num = 0 #to track parsing errors/malformed input
         for line in locations_file:
-            name_match = city_regex.search(line)
-            if name_match:
-                # cities[name_match.group(1)] = {'name': name_match.group(
-                #     1), 'x': name_match.group(2), 'y': name_match.group(3), 'connections': []}
-                cities[name_match.group(1)] = City(
-                    name=name_match.group(1),
-                    x=name_match.group(2),
-                    y=name_match.group(3))
+            line_num += 1
+            if not line.strip():  # skip empty lines
+                continue
+            match = locations_regex.match(line.strip())
+            if match:
+                cities[match.group('city_name')] = City(match.group(
+                    'city_name'), match.group('x'), match.group('y'), [])
+            else:
+                print('Parsing error on line ' + str(line_num) +
+                      ' in file ' + locations_file.name)
+                print('', bytes(line.strip(), 'utf-8'))
 
     # load roads
     with open(args[0].strip('''"' '''), 'r') as connections_file:
-        road_count = 0
-        source_city_regex = re.compile(city_name_regex.pattern + r' (\d+)')
+        road_count = 0 #total number of roads
+        line_num = 0 #to track parsing errors/malformed input
         for line in connections_file:
-            source_city_match = source_city_regex.search(line)
-            if not source_city_match:
+            line_num += 1
+            if not line.strip():
+                continue
+            match = connections_regex.match(line.strip())
+            if not match:
+                print('Parsing error on line ' + str(line_num) +
+                      ' in file ' + connections_file.name)
+                print('', bytes(line.strip(), 'utf-8'))
                 break
-            source_city = source_city_match.group(1)
-            connections_count_match = source_city_regex.search(line)
-            if not connections_count_match:
-                break
-            connections_count = int(connections_count_match.group(2))
-            city_names = city_name_regex.findall(line)
-            for i in range(1, connections_count + 1):
-                if city_names[i] not in cities:
-                    print('Error: invalid road given for City {0}. Exiting...'.format(
-                        source_city))
+            source_city = match.group('city_name')
+            connections_count = int(match.group('connections_count'))
+            city_names = re.findall(city_name_pattern, line)
+            # skip the first two matches, which are the source city and connections count
+            for name in city_names[2:]:
+                if name not in cities:
+                    print('''Error: invalid road ('{1}') given for City {0}. Exiting...'''.format(
+                        source_city, name))
                     return 1
                 cities[source_city].connections.append(
-                    cities[city_names[i]])
+                    cities[name])
                 road_count += 1
         print('Finished loading map. Found {0} cities and {1} roads. '
               'Filtering out excluded cities...'.format(
@@ -289,19 +247,25 @@ def main(args):
             road for road in city.connections if road.name in cities]
     print('Done filtering cities. Remaining {0} cities.'.format(len(cities)))
 
-    if args[2] not in cities:
+    if str(args[2]) not in cities:
         print(
-            'Error: "{0}" is not a valid city name. Exiting...'.format(args[2]))
+            'Error: No city exists with name "{0}". Exiting...'.format(args[2]))
         return 1
     start = cities[args[2]]
-    if args[3] not in cities:
+    if str(args[3]) not in cities:
         print(
-            'Error: "{0}" is not a valid city name. Exiting...'.format(args[3]))
+            'Error: No city exists with name "{0}". Exiting...'.format(args[3]))
         return 1
     end = cities[args[3]]
 
     print('Starting A* search...')
+
+    timer = Stopwatch()
+    timer.start()
     path = a_star(start, end, args[5] == '1', args[6] == '2')
+    timer.stop()
+    print('Algorithm took {0:.3f} seconds'.format(timer.elapsed()))
+
     print('Path:')
     print([city.name for city in path])
 
@@ -314,5 +278,6 @@ if __name__ == '__main__':
     else:
         try:
             main(sys.argv[1:])
+            input('Done. Press enter to continue...')
         except KeyboardInterrupt:
             print('\nProgram terminated by user. Exiting...')
